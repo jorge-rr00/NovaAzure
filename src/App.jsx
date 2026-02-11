@@ -79,6 +79,8 @@ export default function App() {
   const webRecRef = useRef(null);
   const synthesizerRef = useRef(null);
   const synthesizerTokenRef = useRef(0); // Token to track valid synthesis sessions
+  const speakQueueRef = useRef([]);
+  const isSpeakingRef = useRef(false);
   const [azureReady, setAzureReady] = useState(false);
   const transcriptRef = useRef('');
 
@@ -135,6 +137,8 @@ export default function App() {
       }
     }
     synthesizerTokenRef.current += 1;
+    speakQueueRef.current = [];
+    isSpeakingRef.current = false;
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -149,6 +153,75 @@ export default function App() {
         // ignore reset errors
       }
     }
+  };
+
+  const splitIntoChunks = (text, maxLen = 260) => {
+    const clean = cleanTextForSpeech(text || '');
+    if (!clean) return [];
+    const parts = clean.split(/(?<=[\.!?])\s+/).map((p) => p.trim()).filter(Boolean);
+    const chunks = [];
+    let current = '';
+    for (const part of parts) {
+      if ((current + ' ' + part).trim().length > maxLen) {
+        if (current) chunks.push(current.trim());
+        current = part;
+      } else {
+        current = (current + ' ' + part).trim();
+      }
+    }
+    if (current) chunks.push(current.trim());
+    return chunks;
+  };
+
+  const playNextChunk = (token) => {
+    if (synthesizerTokenRef.current !== token) return;
+    if (speakQueueRef.current.length === 0) {
+      isSpeakingRef.current = false;
+      return;
+    }
+
+    const nextText = speakQueueRef.current.shift();
+    if (!nextText) {
+      isSpeakingRef.current = false;
+      return;
+    }
+
+    const ref = azureSynthRef.current;
+    if (!ref) {
+      const synth = window.speechSynthesis;
+      if (!synth) {
+        isSpeakingRef.current = false;
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(nextText);
+      utter.lang = 'es-ES';
+      utter.onend = () => playNextChunk(token);
+      utter.onerror = () => { isSpeakingRef.current = false; };
+      synth.speak(utter);
+      return;
+    }
+
+    const { sdk, speechConfig } = ref;
+    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+    synthesizerRef.current = synthesizer;
+    synthesizer.speakTextAsync(
+      nextText,
+      () => {
+        synthesizer.close();
+        if (synthesizerRef.current === synthesizer) {
+          synthesizerRef.current = null;
+        }
+        playNextChunk(token);
+      },
+      () => {
+        synthesizer.close();
+        if (synthesizerRef.current === synthesizer) {
+          synthesizerRef.current = null;
+        }
+        isSpeakingRef.current = false;
+      }
+    );
   };
 
   useEffect(() => {
@@ -289,55 +362,14 @@ export default function App() {
       console.log('Voice mode disabled, not speaking');
       return;
     }
-    
-    const ref = azureSynthRef.current;
-    if (!ref) {
-      const synth = window.speechSynthesis;
-      if (synth) {
-        const utter = new SpeechSynthesisUtterance(cleanTextForSpeech(text));
-        utter.lang = 'es-ES';
-        synth.cancel();
-        synth.speak(utter);
-      } else {
-        console.log('Speech synthesis not available');
-      }
-      return;
-    }
-    
-    try {
-      const { sdk, speechConfig } = ref;
-      const cleanText = cleanTextForSpeech(text);
-      console.log('Starting speech synthesis with text:', cleanText.substring(0, 50) + '...');
-      
-      const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
-      const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
-      
-      // Capture the current token to validate completion later
-      const currentToken = synthesizerTokenRef.current;
-      
-      // Store reference so we can cancel if needed
-      synthesizerRef.current = synthesizer;
-      synthesizer.speakTextAsync(cleanText,
-        () => { 
-          console.log('Speech synthesis completed');
-          // Only complete if this is still the current speech session
-          if (synthesizerTokenRef.current === currentToken) {
-            synthesizer.close();
-            synthesizerRef.current = null;
-          }
-        },
-        (err) => { 
-          console.error('TTS error:', err); 
-          // Only close if this is still the current speech session
-          if (synthesizerTokenRef.current === currentToken) {
-            synthesizer.close();
-            synthesizerRef.current = null;
-          }
-        }
-      );
-    } catch (err) {
-      console.error('Error in speakTextWithAzure:', err);
-    }
+
+    const chunks = splitIntoChunks(text);
+    if (chunks.length === 0) return;
+    stopSpeechPlayback();
+    speakQueueRef.current = chunks;
+    isSpeakingRef.current = true;
+    const currentToken = synthesizerTokenRef.current;
+    playNextChunk(currentToken);
   };
 
   const startVoice = async () => {
