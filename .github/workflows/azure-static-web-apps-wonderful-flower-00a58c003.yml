@@ -31,8 +31,7 @@ jobs:
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
           output_location: "dist" # Built app content directory - optional
-          app_build_command: "VITE_API_URL=https://nova-sot-group4-dhencphfgtd9fkhz.francecentral-01.azurewebsites.net npm run build"
-
+          app_build_command: "VITE_API_URL=https://nova-sot-group4-dhencphfgtd9fkhz.francecentral-01.azurewebsites.net npm run build VITE_AZURE_SPEECH_KEY=pcwE8myRlOkD9aULhhliDjJxnIphPOCq9WtOn269aD9ACRZfNIkJQQJ99CBACYeBjFXJ3w3AAAYACOGJwgj VITE_AZURE_SPEECH_REGION=eastus npm run build"
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
@@ -46,6 +45,7 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_WONDERFUL_FLOWER_00A58C003 }}
           action: "close"
+
 
 
 
