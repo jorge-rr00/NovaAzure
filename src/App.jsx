@@ -65,6 +65,7 @@ export default function App() {
     { role: 'assistant', text: 'Sistemas NOVA activos. Lista para procesar texto, voz o documentos. ¿En qué puedo ayudarte?' }
   ]);
   const [sessionId, setSessionId] = useState(null);
+  const [sessions, setSessions] = useState([]);
   const [input, setInput] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isListening, setIsListening] = useState(false);
@@ -77,6 +78,7 @@ export default function App() {
   const synthesizerRef = useRef(null);
   const synthesizerTokenRef = useRef(0); // Token to track valid synthesis sessions
   const [azureReady, setAzureReady] = useState(false);
+  const transcriptRef = useRef('');
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -110,6 +112,38 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  const loadSessions = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/sessions`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.sessions)) {
+        setSessions(data.sessions);
+      }
+    } catch (e) {
+      console.warn('No se pudieron cargar sesiones:', e.message);
+    }
+  };
+
+  const formatSessionName = (s) => {
+    if (!s || !s.created_at) return 'Nova-Sesion';
+    const dt = new Date(s.created_at);
+    if (Number.isNaN(dt.getTime())) return 'Nova-Sesion';
+    const formatted = dt.toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `Nova-${formatted}`;
+  };
+
+  const loadSessionMessages = async (sid) => {
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${sid}/messages?limit=200`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.messages)) {
+        setMessages(data.messages.map((m) => ({ role: m.role, text: m.content })));
+      }
+    } catch (e) {
+      console.warn('No se pudieron cargar mensajes:', e.message);
+    }
+  };
+
   // create a session on mount
   useEffect(() => {
     const createSession = async () => {
@@ -119,6 +153,7 @@ export default function App() {
         if (data.ok) {
           setSessionId(data.session_id);
           if (data.welcome) setMessages(m => [...m, { role: 'assistant', text: data.welcome }]);
+          loadSessions();
         }
       } catch (e) {
         console.warn('No se pudo crear session:', e.message);
@@ -156,14 +191,13 @@ export default function App() {
       if (data.ok) {
         setMessages((m) => [...m, { role: 'assistant', text: data.reply }]);
         if (data.session_id) setSessionId(data.session_id);
+        loadSessions();
         // Only speak the response if voice mode is enabled AND Azure is ready
         console.log('Response received. voiceModeEnabled:', voiceModeEnabled, 'azureReady:', azureReady);
-        if (azureReady && data.reply) {
-          try { 
-            speakTextWithAzure(data.reply, voiceModeEnabled);
-          } catch (e) { 
-            console.error('Error calling speakTextWithAzure:', e);
-          }
+        try {
+          speakTextWithAzure(data.reply, voiceModeEnabled);
+        } catch (e) {
+          console.error('Error calling speakTextWithAzure:', e);
         }
       } else {
         setMessages((m) => [...m, { role: 'assistant', text: `Rechazado: ${data.reason || 'Entrada no válida'}` }]);
@@ -197,7 +231,15 @@ export default function App() {
     
     const ref = azureSynthRef.current;
     if (!ref) {
-      console.log('Azure Speech SDK not ready');
+      const synth = window.speechSynthesis;
+      if (synth) {
+        const utter = new SpeechSynthesisUtterance(cleanTextForSpeech(text));
+        utter.lang = 'es-ES';
+        synth.cancel();
+        synth.speak(utter);
+      } else {
+        console.log('Speech synthesis not available');
+      }
       return;
     }
     
@@ -266,12 +308,15 @@ export default function App() {
       
       // stop Azure recognizer if present
       if (azureReady && azureRecognizerRef.current) {
-        try { await azureRecognizerRef.current.recognizer.stopContinuousRecognitionAsync(); } catch (e) {}
+        try { azureRecognizerRef.current.recognizer.stopContinuousRecognitionAsync(); } catch (e) {}
       }
       // stop web recognizer if present
       if (webRecRef.current) {
         try { webRecRef.current.stop(); } catch (e) {}
         webRecRef.current = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
       setIsListening(false);
       setVoiceModeEnabled(false);
@@ -285,18 +330,26 @@ export default function App() {
     if (azureReady && azureRecognizerRef.current) {
       const { recognizer } = azureRecognizerRef.current;
       setIsListening(true);
+      transcriptRef.current = '';
 
-      recognizer.recognized = async (s, e) => {
+      recognizer.recognizing = (s, e) => {
         if (e.result && e.result.text) {
-          const txt = e.result.text;
-          // Put transcribed text in input field
-          // Keep voice mode enabled, just stop listening momentarily
-          setInput(txt);
-          setIsListening(false);
+          const partial = e.result.text;
+          const base = transcriptRef.current ? `${transcriptRef.current} ` : '';
+          setInput(`${base}${partial}`.trim());
         }
       };
-      recognizer.canceled = (s, e) => { setIsListening(false); };
-      recognizer.sessionStopped = (s, e) => { setIsListening(false); };
+      recognizer.recognized = (s, e) => {
+        if (e.result && e.result.text) {
+          const txt = e.result.text.trim();
+          if (txt) {
+            transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${txt}` : txt;
+            setInput(transcriptRef.current);
+          }
+        }
+      };
+      recognizer.canceled = () => { setIsListening(false); };
+      recognizer.sessionStopped = () => { setIsListening(false); };
       recognizer.startContinuousRecognitionAsync();
       return;
     }
@@ -306,20 +359,37 @@ export default function App() {
     if (!Speech) return alert('Voz no soportada en este navegador');
     const rec = new Speech();
     rec.lang = 'es-ES';
-    rec.interimResults = false;
-    rec.continuous = false;
+    rec.interimResults = true;
+    rec.continuous = true;
     webRecRef.current = rec;
     setIsListening(true);
-    rec.onresult = async (e) => {
-      const txt = e.results[0][0].transcript;
-      // Put transcribed text in input field
-      // Keep voice mode enabled, just stop listening momentarily
-      setInput(txt);
-      setIsListening(false);
-      webRecRef.current = null;
+    transcriptRef.current = '';
+    rec.onresult = (e) => {
+      let finalText = '';
+      let interimText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (res.isFinal) {
+          finalText += res[0].transcript;
+        } else {
+          interimText += res[0].transcript;
+        }
+      }
+      if (finalText) {
+        transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${finalText}` : finalText;
+      }
+      const base = transcriptRef.current ? `${transcriptRef.current} ` : '';
+      setInput(`${base}${interimText}`.trim());
     };
-    rec.onerror = (e) => { console.error('STT error', e); setIsListening(false); webRecRef.current = null; };
-    rec.onend = () => { setIsListening(false); webRecRef.current = null; };
+    rec.onerror = () => { setIsListening(false); setVoiceModeEnabled(false); webRecRef.current = null; };
+    rec.onend = () => {
+      if (voiceModeEnabled) {
+        try { rec.start(); } catch (e) {}
+      } else {
+        setIsListening(false);
+        webRecRef.current = null;
+      }
+    };
     rec.start();
   };
 
@@ -359,9 +429,30 @@ export default function App() {
           + NUEVA CONSULTA
         </button>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
           <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '800', letterSpacing: '0.1rem', marginBottom: '1rem' }}>RECIENTES</p>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}>Análisis_Datos_01.pdf</div>
+            {sessions.length === 0 && (
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '0.5rem', borderRadius: '0.5rem' }}>Sin sesiones</div>
+            )}
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                onClick={async () => {
+                  setSessionId(s.id);
+                  await loadSessionMessages(s.id);
+                }}
+                style={{
+                  fontSize: '0.8rem',
+                  color: s.id === sessionId ? '#e2e8f0' : '#94a3b8',
+                  padding: '0.5rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  backgroundColor: s.id === sessionId ? 'rgba(255,255,255,0.08)' : 'transparent'
+                }}
+              >
+                {formatSessionName(s)}
+              </div>
+            ))}
         </div>
       </aside>
 
@@ -416,7 +507,7 @@ export default function App() {
                 ref={fileInputRef}
                 style={{ display: 'none' }}
                 onChange={(e) => setSelectedFiles(Array.from(e.target.files))}
-                accept=".pdf,.doc,.docx,image/*"
+                  accept=".pdf,.docx,image/*"
                 multiple
               />
               <button onClick={() => fileInputRef.current.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: '#94a3b8' }}><IconClip /></button>
