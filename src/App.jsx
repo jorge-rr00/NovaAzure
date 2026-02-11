@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import './App.css';
 
 // Iconos en SVG para no depender de librerías externas que puedan fallar
 const IconBot = () => (
@@ -30,7 +31,7 @@ const renderInlineMarkdown = (value) => {
 };
 
 const ChatMessage = ({ role, text, fileName }) => {
-  const isPre = typeof text === 'string' && (text.includes('\n') || text.includes('|') || text.includes('##'));
+  const isMonospace = typeof text === 'string' && (text.includes('\n') || text.includes('|') || text.includes('##'));
   return (
     <div style={{
       display: 'flex',
@@ -62,8 +63,20 @@ const ChatMessage = ({ role, text, fileName }) => {
             📄 {fileName}
           </div>
         )}
-        {isPre ? (
-          <pre style={{ margin: 0, lineHeight: '1.45', fontSize: '0.95rem', whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace', background: 'rgba(0,0,0,0.05)', padding: '0.6rem', borderRadius: '0.5rem' }}>{text}</pre>
+        {isMonospace ? (
+          <div
+            style={{
+              margin: 0,
+              lineHeight: '1.45',
+              fontSize: '0.95rem',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace',
+              background: 'rgba(0,0,0,0.05)',
+              padding: '0.6rem',
+              borderRadius: '0.5rem'
+            }}
+            dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(text) }}
+          />
         ) : (
           <p
             style={{ margin: 0, lineHeight: '1.5', fontSize: '0.95rem' }}
