@@ -174,7 +174,10 @@ export default function App() {
   };
 
   const playNextChunk = (token) => {
-    if (synthesizerTokenRef.current !== token) return;
+    if (synthesizerTokenRef.current !== token || !voiceModeEnabled) {
+      isSpeakingRef.current = false;
+      return;
+    }
     if (speakQueueRef.current.length === 0) {
       isSpeakingRef.current = false;
       return;
@@ -193,6 +196,7 @@ export default function App() {
         isSpeakingRef.current = false;
         return;
       }
+      synth.cancel();
       const utter = new SpeechSynthesisUtterance(nextText);
       utter.lang = 'es-ES';
       utter.onend = () => playNextChunk(token);
@@ -368,7 +372,8 @@ export default function App() {
     stopSpeechPlayback();
     speakQueueRef.current = chunks;
     isSpeakingRef.current = true;
-    const currentToken = synthesizerTokenRef.current;
+    const currentToken = synthesizerTokenRef.current + 1;
+    synthesizerTokenRef.current = currentToken;
     playNextChunk(currentToken);
   };
 
