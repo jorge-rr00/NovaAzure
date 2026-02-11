@@ -73,14 +73,10 @@ export default function App() {
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
   const azureRecognizerRef = useRef(null);
-  const azureSynthRef = useRef(null);
-  const speechKeyRef = useRef('');
-  const speechRegionRef = useRef('');
   const webRecRef = useRef(null);
-  const synthesizerRef = useRef(null);
-  const synthesizerTokenRef = useRef(0); // Token to track valid synthesis sessions
-  const speakQueueRef = useRef([]);
-  const isSpeakingRef = useRef(false);
+  const audioRef = useRef(null);
+  const audioUrlRef = useRef('');
+  const ttsAbortRef = useRef(null);
   const [azureReady, setAzureReady] = useState(false);
   const transcriptRef = useRef('');
 
@@ -96,9 +92,6 @@ export default function App() {
     const region = import.meta.env.VITE_AZURE_SPEECH_REGION;
     if (!key || !region) return;
 
-    speechKeyRef.current = key;
-    speechRegionRef.current = region;
-
     let cancelled = false;
     (async () => {
       try {
@@ -106,11 +99,9 @@ export default function App() {
         if (cancelled) return;
         const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
         speechConfig.speechRecognitionLanguage = 'es-ES';
-        // crear synthesizer y almacenarlo
         const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
         const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
         azureRecognizerRef.current = { sdk: SpeechSDK, recognizer };
-        azureSynthRef.current = { sdk: SpeechSDK, speechConfig };
         setAzureReady(true);
       } catch (e) {
         console.warn('Azure Speech SDK no disponible:', e.message);
@@ -120,112 +111,20 @@ export default function App() {
   }, []);
 
   const stopSpeechPlayback = () => {
-    if (synthesizerRef.current) {
+    if (ttsAbortRef.current) {
+      try { ttsAbortRef.current.abort(); } catch (e) {}
+      ttsAbortRef.current = null;
+    }
+    if (audioRef.current) {
       try {
-        const currentSynth = synthesizerRef.current;
-        synthesizerRef.current = null;
-        currentSynth.stopSpeakingAsync(
-          () => {
-            try { currentSynth.close(); } catch (e) {}
-          },
-          () => {
-            try { currentSynth.close(); } catch (e) {}
-          }
-        );
-      } catch (e) {
-        synthesizerRef.current = null;
-      }
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      } catch (e) {}
     }
-    synthesizerTokenRef.current += 1;
-    speakQueueRef.current = [];
-    isSpeakingRef.current = false;
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (audioUrlRef.current) {
+      try { URL.revokeObjectURL(audioUrlRef.current); } catch (e) {}
+      audioUrlRef.current = '';
     }
-
-    if (azureSynthRef.current && speechKeyRef.current && speechRegionRef.current) {
-      try {
-        const { sdk } = azureSynthRef.current;
-        const newConfig = sdk.SpeechConfig.fromSubscription(speechKeyRef.current, speechRegionRef.current);
-        newConfig.speechRecognitionLanguage = 'es-ES';
-        azureSynthRef.current = { sdk, speechConfig: newConfig };
-      } catch (e) {
-        // ignore reset errors
-      }
-    }
-  };
-
-  const splitIntoChunks = (text, maxLen = 260) => {
-    const clean = cleanTextForSpeech(text || '');
-    if (!clean) return [];
-    const parts = clean.split(/(?<=[\.!?])\s+/).map((p) => p.trim()).filter(Boolean);
-    const chunks = [];
-    let current = '';
-    for (const part of parts) {
-      if ((current + ' ' + part).trim().length > maxLen) {
-        if (current) chunks.push(current.trim());
-        current = part;
-      } else {
-        current = (current + ' ' + part).trim();
-      }
-    }
-    if (current) chunks.push(current.trim());
-    return chunks;
-  };
-
-  const playNextChunk = (token) => {
-    if (synthesizerTokenRef.current !== token || !voiceModeEnabled) {
-      isSpeakingRef.current = false;
-      return;
-    }
-    if (speakQueueRef.current.length === 0) {
-      isSpeakingRef.current = false;
-      return;
-    }
-
-    const nextText = speakQueueRef.current.shift();
-    if (!nextText) {
-      isSpeakingRef.current = false;
-      return;
-    }
-
-    const ref = azureSynthRef.current;
-    if (!ref) {
-      const synth = window.speechSynthesis;
-      if (!synth) {
-        isSpeakingRef.current = false;
-        return;
-      }
-      synth.cancel();
-      const utter = new SpeechSynthesisUtterance(nextText);
-      utter.lang = 'es-ES';
-      utter.onend = () => playNextChunk(token);
-      utter.onerror = () => { isSpeakingRef.current = false; };
-      synth.speak(utter);
-      return;
-    }
-
-    const { sdk, speechConfig } = ref;
-    const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
-    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
-    synthesizerRef.current = synthesizer;
-    synthesizer.speakTextAsync(
-      nextText,
-      () => {
-        synthesizer.close();
-        if (synthesizerRef.current === synthesizer) {
-          synthesizerRef.current = null;
-        }
-        playNextChunk(token);
-      },
-      () => {
-        synthesizer.close();
-        if (synthesizerRef.current === synthesizer) {
-          synthesizerRef.current = null;
-        }
-        isSpeakingRef.current = false;
-      }
-    );
   };
 
   useEffect(() => {
@@ -276,6 +175,7 @@ export default function App() {
         if (fileInputRef.current) fileInputRef.current.value = null;
         setSelectedFiles([]);
         loadSessions();
+        stopSpeechPlayback();
       }
     } catch (e) {
       setMessages([{ role: 'assistant', text: 'Error creando nueva sesión.' }]);
@@ -360,21 +260,44 @@ export default function App() {
       .replace(/\n/g, ' '); // replace single newlines with space
   };
 
-  const speakTextWithAzure = (text, shouldSpeak = true) => {
+  const speakTextWithAzure = async (text, shouldSpeak = true) => {
     // If we shouldn't speak, don't start new speech
     if (!shouldSpeak) {
       console.log('Voice mode disabled, not speaking');
       return;
     }
 
-    const chunks = splitIntoChunks(text);
-    if (chunks.length === 0) return;
+    const clean = cleanTextForSpeech(text || '');
+    if (!clean) return;
     stopSpeechPlayback();
-    speakQueueRef.current = chunks;
-    isSpeakingRef.current = true;
-    const currentToken = synthesizerTokenRef.current + 1;
-    synthesizerTokenRef.current = currentToken;
-    playNextChunk(currentToken);
+
+    const controller = new AbortController();
+    ttsAbortRef.current = controller;
+
+    try {
+      const res = await fetch(`${API_URL}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: clean }),
+        signal: controller.signal
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      if (!voiceModeEnabled) return;
+
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+      }
+      audioRef.current.src = url;
+      audioRef.current.onended = () => {
+        stopSpeechPlayback();
+      };
+      await audioRef.current.play();
+    } catch (e) {
+      // ignore aborted or playback errors
+    }
   };
 
   const startVoice = async () => {
