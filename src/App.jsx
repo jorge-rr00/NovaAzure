@@ -112,6 +112,35 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  const stopSpeechPlayback = () => {
+    if (synthesizerRef.current) {
+      try {
+        const currentSynth = synthesizerRef.current;
+        synthesizerRef.current = null;
+        currentSynth.stopSpeakingAsync(
+          () => {
+            try { currentSynth.close(); } catch (e) {}
+          },
+          () => {
+            try { currentSynth.close(); } catch (e) {}
+          }
+        );
+      } catch (e) {
+        synthesizerRef.current = null;
+      }
+    }
+    synthesizerTokenRef.current += 1;
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  useEffect(() => {
+    if (!voiceModeEnabled) {
+      stopSpeechPlayback();
+    }
+  }, [voiceModeEnabled]);
+
   const loadSessions = async () => {
     try {
       const res = await fetch(`${API_URL}/api/sessions`);
@@ -141,6 +170,22 @@ export default function App() {
       }
     } catch (e) {
       console.warn('No se pudieron cargar mensajes:', e.message);
+    }
+  };
+
+  const createNewSession = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/sessions`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setSessionId(data.session_id);
+        setMessages([{ role: 'assistant', text: data.welcome || 'Sesión reiniciada.' }]);
+        if (fileInputRef.current) fileInputRef.current.value = null;
+        setSelectedFiles([]);
+        loadSessions();
+      }
+    } catch (e) {
+      setMessages([{ role: 'assistant', text: 'Error creando nueva sesión.' }]);
     }
   };
 
@@ -282,29 +327,7 @@ export default function App() {
   const startVoice = async () => {
     // Toggle behaviour: if voice mode is enabled, disable it
     if (voiceModeEnabled) {
-      // Try to stop speech synthesis if it's currently playing (non-blocking)
-      if (synthesizerRef.current) {
-        try {
-          const currentSynth = synthesizerRef.current;
-          synthesizerRef.current = null;
-          // stopSpeakingAsync stops any ongoing speech - don't wait for it
-          currentSynth.stopSpeakingAsync(
-            () => { 
-              try { currentSynth.close(); } catch (e) {}
-            },
-            (err) => {
-              console.warn('Error stopping speech:', err);
-              try { currentSynth.close(); } catch (e) {}
-            }
-          );
-        } catch (e) {
-          console.error('Error during speech stop:', e);
-          synthesizerRef.current = null;
-        }
-      }
-      
-      // Invalidate current speech session to prevent callbacks from new speech
-      synthesizerTokenRef.current += 1;
+      stopSpeechPlayback();
       
       // stop Azure recognizer if present
       if (azureReady && azureRecognizerRef.current) {
@@ -314,9 +337,6 @@ export default function App() {
       if (webRecRef.current) {
         try { webRecRef.current.stop(); } catch (e) {}
         webRecRef.current = null;
-      }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
       }
       setIsListening(false);
       setVoiceModeEnabled(false);
@@ -405,20 +425,9 @@ export default function App() {
 
         <button
           onClick={async () => {
-            // create new session via backend
-            try {
-              const res = await fetch(`${API_URL}/api/sessions`, { method: 'POST' });
-              const data = await res.json();
-              if (data.ok) {
-                setSessionId(data.session_id);
-                setMessages([{ role: 'assistant', text: data.welcome || 'Sesión reiniciada.' }]);
-                // reset file input
-                if (fileInputRef.current) fileInputRef.current.value = null;
-                setSelectedFiles([]);
-              }
-            } catch (e) {
-              setMessages([{ role: 'assistant', text: 'Error creando nueva sesión.' }]);
-            }
+            stopSpeechPlayback();
+            setVoiceModeEnabled(false);
+            await createNewSession();
           }}
           style={{
             width: '100%', padding: '0.8rem', backgroundColor: 'rgba(255,255,255,0.05)',
@@ -438,6 +447,7 @@ export default function App() {
               <div
                 key={s.id}
                 onClick={async () => {
+                  stopSpeechPlayback();
                   setSessionId(s.id);
                   await loadSessionMessages(s.id);
                 }}
@@ -450,7 +460,37 @@ export default function App() {
                   backgroundColor: s.id === sessionId ? 'rgba(255,255,255,0.08)' : 'transparent'
                 }}
               >
-                {formatSessionName(s)}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{formatSessionName(s)}</span>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      stopSpeechPlayback();
+                      try {
+                        const res = await fetch(`${API_URL}/api/sessions/${s.id}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.ok && s.id === sessionId) {
+                          setVoiceModeEnabled(false);
+                          await createNewSession();
+                        } else {
+                          loadSessions();
+                        }
+                      } catch (err) {
+                        console.warn('No se pudo eliminar la sesión:', err.message);
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                    title="Eliminar sesión"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
         </div>
