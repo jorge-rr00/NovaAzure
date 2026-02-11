@@ -177,9 +177,12 @@ export default function App() {
     }
   };
 
+  const getSessionId = (s) => s?.id || s?.session_id || '';
+
   const formatSessionName = (s) => {
-    if (!s || !s.created_at) return 'Nova-Sesion';
-    const dt = new Date(s.created_at);
+    const createdAt = s?.created_at || s?.createdAt;
+    if (!createdAt) return 'Nova-Sesion';
+    const dt = new Date(createdAt);
     if (Number.isNaN(dt.getTime())) return 'Nova-Sesion';
     const formatted = dt.toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     return `Nova-${formatted}`;
@@ -247,6 +250,9 @@ export default function App() {
 
     // reset input/files in UI
     setInput('');
+    if (voiceModeEnabled || viaVoice) {
+      transcriptRef.current = '';
+    }
     setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = null;
 
@@ -479,19 +485,20 @@ export default function App() {
             )}
             {sessions.map((s) => (
               <div
-                key={s.id}
+                key={getSessionId(s)}
                 onClick={async () => {
                   stopSpeechPlayback();
-                  setSessionId(s.id);
-                  await loadSessionMessages(s.id);
+                  const sid = getSessionId(s);
+                  setSessionId(sid);
+                  await loadSessionMessages(sid);
                 }}
                 style={{
                   fontSize: '0.8rem',
-                  color: s.id === sessionId ? '#e2e8f0' : '#94a3b8',
+                  color: getSessionId(s) === sessionId ? '#e2e8f0' : '#94a3b8',
                   padding: '0.5rem',
                   borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  backgroundColor: s.id === sessionId ? 'rgba(255,255,255,0.08)' : 'transparent'
+                  backgroundColor: getSessionId(s) === sessionId ? 'rgba(255,255,255,0.08)' : 'transparent'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -501,9 +508,10 @@ export default function App() {
                       e.stopPropagation();
                       stopSpeechPlayback();
                       try {
-                        const res = await fetch(`${API_URL}/api/sessions/${s.id}`, { method: 'DELETE' });
+                        const sid = getSessionId(s);
+                        const res = await fetch(`${API_URL}/api/sessions/${sid}`, { method: 'DELETE' });
                         const data = await res.json();
-                        if (data.ok && s.id === sessionId) {
+                        if (data.ok && sid === sessionId) {
                           setVoiceModeEnabled(false);
                           await createNewSession();
                         } else {
