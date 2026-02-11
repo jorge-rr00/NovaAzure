@@ -70,6 +70,7 @@ export default function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
   const azureRecognizerRef = useRef(null);
@@ -218,6 +219,7 @@ export default function App() {
     setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = null;
 
+    setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/query`, { method: 'POST', body: form });
       const data = await res.json();
@@ -242,6 +244,8 @@ export default function App() {
       }
     } catch (err) {
       setMessages((m) => [...m, { role: 'assistant', text: `Error de red: ${err.message}` }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -414,6 +418,29 @@ export default function App() {
           + NUEVA CONSULTA
         </button>
 
+        <button
+          onClick={async () => {
+            stopSpeechPlayback();
+            setVoiceModeEnabled(false);
+            try {
+              const res = await fetch(`${API_URL}/api/sessions`, { method: 'DELETE' });
+              const data = await res.json();
+              if (data.ok) {
+                await createNewSession();
+              }
+            } catch (e) {
+              setMessages([{ role: 'assistant', text: 'Error eliminando historial.' }]);
+            }
+          }}
+          style={{
+            width: '100%', padding: '0.6rem', backgroundColor: 'rgba(239,68,68,0.08)',
+            color: '#fca5a5', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '0.75rem',
+            cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '1.5rem'
+          }}
+        >
+          BORRAR HISTORIAL
+        </button>
+
           <div style={{ flex: 1, overflowY: 'auto' }}>
           <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '800', letterSpacing: '0.1rem', marginBottom: '1rem' }}>RECIENTES</p>
             {sessions.length === 0 && (
@@ -493,6 +520,18 @@ export default function App() {
             {messages.map((m, i) => (
               <ChatMessage key={i} role={m.role} text={m.text} fileName={m.fileName} />
             ))}
+            {isLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', padding: '0 1rem' }}>
+                <div style={{
+                  maxWidth: '75%', padding: '1.2rem', borderRadius: '1.5rem 1.5rem 1.5rem 0',
+                  backgroundColor: '#1e293b', color: 'white', border: '1px solid #334155',
+                  display: 'flex', alignItems: 'center', gap: '0.6rem'
+                }}>
+                  <span className="nova-spinner" />
+                  <span style={{ fontSize: '0.9rem' }}>Pensando...</span>
+                </div>
+              </div>
+            )}
             <div ref={scrollRef} />
           </div>
         </section>
