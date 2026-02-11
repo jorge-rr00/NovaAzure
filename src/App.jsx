@@ -74,6 +74,8 @@ export default function App() {
   const scrollRef = useRef(null);
   const azureRecognizerRef = useRef(null);
   const azureSynthRef = useRef(null);
+  const speechKeyRef = useRef('');
+  const speechRegionRef = useRef('');
   const webRecRef = useRef(null);
   const synthesizerRef = useRef(null);
   const synthesizerTokenRef = useRef(0); // Token to track valid synthesis sessions
@@ -91,6 +93,9 @@ export default function App() {
     const key = import.meta.env.VITE_AZURE_SPEECH_KEY;
     const region = import.meta.env.VITE_AZURE_SPEECH_REGION;
     if (!key || !region) return;
+
+    speechKeyRef.current = key;
+    speechRegionRef.current = region;
 
     let cancelled = false;
     (async () => {
@@ -132,6 +137,17 @@ export default function App() {
     synthesizerTokenRef.current += 1;
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
+    }
+
+    if (azureSynthRef.current && speechKeyRef.current && speechRegionRef.current) {
+      try {
+        const { sdk } = azureSynthRef.current;
+        const newConfig = sdk.SpeechConfig.fromSubscription(speechKeyRef.current, speechRegionRef.current);
+        newConfig.speechRecognitionLanguage = 'es-ES';
+        azureSynthRef.current = { sdk, speechConfig: newConfig };
+      } catch (e) {
+        // ignore reset errors
+      }
     }
   };
 
