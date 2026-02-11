@@ -51,8 +51,23 @@
   display: inline-block;
 }
 
+.nova-thinking {
+  animation: nova-breathe 1.6s ease-in-out infinite;
+}
+
 @keyframes nova-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes nova-breathe {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
   }
 }

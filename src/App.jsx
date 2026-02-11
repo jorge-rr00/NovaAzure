@@ -14,6 +14,21 @@ const IconSend = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
 );
 
+const escapeHtml = (value) => {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+const renderInlineMarkdown = (value) => {
+  const safe = escapeHtml(value || '');
+  const withBold = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return withBold.replace(/\n/g, '<br />');
+};
+
 const ChatMessage = ({ role, text, fileName }) => {
   const isPre = typeof text === 'string' && (text.includes('\n') || text.includes('|') || text.includes('##'));
   return (
@@ -50,7 +65,10 @@ const ChatMessage = ({ role, text, fileName }) => {
         {isPre ? (
           <pre style={{ margin: 0, lineHeight: '1.45', fontSize: '0.95rem', whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace', background: 'rgba(0,0,0,0.05)', padding: '0.6rem', borderRadius: '0.5rem' }}>{text}</pre>
         ) : (
-          <p style={{ margin: 0, lineHeight: '1.5', fontSize: '0.95rem' }}>{text}</p>
+          <p
+            style={{ margin: 0, lineHeight: '1.5', fontSize: '0.95rem' }}
+            dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(text) }}
+          />
         )}
         <div style={{ fontSize: '0.6rem', opacity: 0.5, marginTop: '0.5rem', textAlign: role === 'user' ? 'right' : 'left' }}>
           {role === 'user' ? 'ENVIADO' : 'NOVA CORE'}
@@ -528,7 +546,7 @@ export default function App() {
                   display: 'flex', alignItems: 'center', gap: '0.6rem'
                 }}>
                   <span className="nova-spinner" />
-                  <span style={{ fontSize: '0.9rem' }}>Pensando...</span>
+                  <span className="nova-thinking" style={{ fontSize: '0.9rem' }}>Pensando...</span>
                 </div>
               </div>
             )}
