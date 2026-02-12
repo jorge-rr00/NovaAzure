@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as LottieModule from 'lottie-react';
 import './App.css';
-import aiRobot from './assets/AI_Robot.json';
+import aiRobot from './assets/Robot.json';
 
 // Iconos en SVG para no depender de librerías externas que puedan fallar
 const IconBot = () => (
@@ -129,6 +129,12 @@ export default function App() {
 
   const API_URL = import.meta.env.VITE_API_URL || '';
   const botState = isListening ? 'listening' : isLoading ? 'thinking' : isSpeaking ? 'speaking' : 'idle';
+  const lastAssistantIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.role === 'assistant') return i;
+    }
+    return -1;
+  })();
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -590,9 +596,30 @@ export default function App() {
         <section style={{ flex: 1, overflowY: 'auto', padding: '2rem 0' }}>
           <div className="nova-chat-layout">
             <div className="nova-chat-stream">
-              {messages.map((m, i) => (
-                <ChatMessage key={i} role={m.role} text={m.text} fileName={m.fileName} />
-              ))}
+              {messages.map((m, i) => {
+                const isLastAssistant = m.role === 'assistant' && i === lastAssistantIndex;
+                if (!isLastAssistant) {
+                  return <ChatMessage key={i} role={m.role} text={m.text} fileName={m.fileName} />;
+                }
+                return (
+                  <div className="nova-assistant-row" key={i}>
+                    <ChatMessage role={m.role} text={m.text} fileName={m.fileName} />
+                    <div className={`nova-inline-robot nova-inline-${botState}`}>
+                      {LottieSafe ? (
+                        <LottieSafe
+                          lottieRef={lottieRef}
+                          animationData={aiRobot}
+                          loop
+                          autoplay
+                          className="nova-inline-lottie"
+                        />
+                      ) : (
+                        <div className="nova-bot-fallback">🤖</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               {isLoading && (
                 <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', padding: '0 1rem' }}>
                   <div style={{
@@ -606,28 +633,6 @@ export default function App() {
                 </div>
               )}
               <div ref={scrollRef} />
-            </div>
-            <div className="nova-bot-panel">
-              <div className={`nova-bot-card nova-bot-${botState}`}>
-                <div className="nova-bot-title">NOVA</div>
-                <div className="nova-bot-state">
-                  {botState === 'listening' && 'Escuchando'}
-                  {botState === 'thinking' && 'Pensando'}
-                  {botState === 'speaking' && 'Hablando'}
-                  {botState === 'idle' && 'En espera'}
-                </div>
-                {LottieSafe ? (
-                  <LottieSafe
-                    lottieRef={lottieRef}
-                    animationData={aiRobot}
-                    loop
-                    autoplay
-                    className="nova-bot-lottie"
-                  />
-                ) : (
-                  <div className="nova-bot-fallback">🤖</div>
-                )}
-              </div>
             </div>
           </div>
         </section>
