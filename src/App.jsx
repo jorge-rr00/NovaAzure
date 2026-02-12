@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as LottieModule from 'lottie-react';
 import './App.css';
-import aiRobot from './assets/AI Robot.json';
+import aiRobot from './assets/AI_Robot.json';
 
 // Iconos en SVG para no depender de librerías externas que puedan fallar
 const IconBot = () => (
@@ -97,6 +97,12 @@ const ChatMessage = ({ role, text, fileName }) => {
 };
 
 const LottieComponent = LottieModule.default || LottieModule.Lottie;
+const isValidReactComponent = (value) => {
+  if (!value) return false;
+  if (typeof value === 'function') return true;
+  return typeof value === 'object' && !!value.$$typeof;
+};
+const LottieSafe = isValidReactComponent(LottieComponent) ? LottieComponent : null;
 
 export default function App() {
   const [messages, setMessages] = useState([
@@ -610,14 +616,16 @@ export default function App() {
                   {botState === 'speaking' && 'Hablando'}
                   {botState === 'idle' && 'En espera'}
                 </div>
-                {LottieComponent && (
-                  <LottieComponent
+                {LottieSafe ? (
+                  <LottieSafe
                     lottieRef={lottieRef}
                     animationData={aiRobot}
                     loop
                     autoplay
                     className="nova-bot-lottie"
                   />
+                ) : (
+                  <div className="nova-bot-fallback">🤖</div>
                 )}
               </div>
             </div>
