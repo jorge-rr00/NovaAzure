@@ -11,6 +11,9 @@ const IconClip = () => (
 const IconMic = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
 );
+const IconSpeaker = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15 9a4 4 0 0 1 0 6"/><path d="M19 7a8 8 0 0 1 0 10"/></svg>
+);
 const IconSend = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
 );
@@ -100,7 +103,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isListening, setIsListening] = useState(false);
-  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [speakerEnabled, setSpeakerEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -160,10 +163,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!voiceModeEnabled) {
+    if (!speakerEnabled) {
       stopSpeechPlayback();
     }
-  }, [voiceModeEnabled]);
+  }, [speakerEnabled]);
 
   const loadSessions = async () => {
     try {
@@ -245,12 +248,12 @@ export default function App() {
     form.append('query', text);
     if (sessionId) form.append('session_id', sessionId);
     // Send voice_mode flag to indicate voice-enabled mode
-    if (voiceModeEnabled) form.append('voice_mode', 'true');
+    if (speakerEnabled) form.append('voice_mode', 'true');
     files.forEach((f) => form.append('files', f));
 
     // reset input/files in UI
     setInput('');
-    if (voiceModeEnabled || viaVoice) {
+    if (isListening || viaVoice) {
       transcriptRef.current = '';
     }
     setSelectedFiles([]);
@@ -270,9 +273,9 @@ export default function App() {
         if (data.session_id) setSessionId(data.session_id);
         loadSessions();
         // Only speak the response if voice mode is enabled AND Azure is ready
-        console.log('Response received. voiceModeEnabled:', voiceModeEnabled, 'azureReady:', azureReady);
+        console.log('Response received. speakerEnabled:', speakerEnabled, 'azureReady:', azureReady);
         try {
-          speakTextWithAzure(data.reply, voiceModeEnabled);
+          speakTextWithAzure(data.reply, speakerEnabled);
         } catch (e) {
           console.error('Error calling speakTextWithAzure:', e);
         }
@@ -324,7 +327,7 @@ export default function App() {
       });
       if (!res.ok) return;
       const blob = await res.blob();
-      if (!voiceModeEnabled) return;
+      if (!speakerEnabled) return;
 
       const url = URL.createObjectURL(blob);
       audioUrlRef.current = url;
@@ -341,27 +344,19 @@ export default function App() {
     }
   };
 
-  const startVoice = async () => {
-    // Toggle behaviour: if voice mode is enabled, disable it
-    if (voiceModeEnabled) {
-      stopSpeechPlayback();
-      
-      // stop Azure recognizer if present
+  const toggleListening = async () => {
+    // Toggle behaviour: if listening, stop the recognizers
+    if (isListening) {
       if (azureReady && azureRecognizerRef.current) {
         try { azureRecognizerRef.current.recognizer.stopContinuousRecognitionAsync(); } catch (e) {}
       }
-      // stop web recognizer if present
       if (webRecRef.current) {
         try { webRecRef.current.stop(); } catch (e) {}
         webRecRef.current = null;
       }
       setIsListening(false);
-      setVoiceModeEnabled(false);
       return;
     }
-
-    // Enable voice mode and start listening
-    setVoiceModeEnabled(true);
 
     // Start Azure continuous recognition if available
     if (azureReady && azureRecognizerRef.current) {
@@ -418,9 +413,9 @@ export default function App() {
       const base = transcriptRef.current ? `${transcriptRef.current} ` : '';
       setInput(`${base}${interimText}`.trim());
     };
-    rec.onerror = () => { setIsListening(false); setVoiceModeEnabled(false); webRecRef.current = null; };
+    rec.onerror = () => { setIsListening(false); webRecRef.current = null; };
     rec.onend = () => {
-      if (voiceModeEnabled) {
+      if (isListening) {
         try { rec.start(); } catch (e) {}
       } else {
         setIsListening(false);
@@ -428,6 +423,13 @@ export default function App() {
       }
     };
     rec.start();
+  };
+
+  const toggleSpeaker = () => {
+    setSpeakerEnabled((prev) => !prev);
+    if (speakerEnabled) {
+      stopSpeechPlayback();
+    }
   };
 
   return (
@@ -443,7 +445,7 @@ export default function App() {
         <button
           onClick={async () => {
             stopSpeechPlayback();
-            setVoiceModeEnabled(false);
+            setSpeakerEnabled(false);
             await createNewSession();
           }}
           style={{
@@ -458,7 +460,7 @@ export default function App() {
         <button
           onClick={async () => {
             stopSpeechPlayback();
-            setVoiceModeEnabled(false);
+            setSpeakerEnabled(false);
             try {
               const res = await fetch(`${API_URL}/api/sessions`, { method: 'DELETE' });
               const data = await res.json();
@@ -512,7 +514,7 @@ export default function App() {
                         const res = await fetch(`${API_URL}/api/sessions/${sid}`, { method: 'DELETE' });
                         const data = await res.json();
                         if (data.ok && sid === sessionId) {
-                          setVoiceModeEnabled(false);
+                          setSpeakerEnabled(false);
                           await createNewSession();
                         } else {
                           loadSessions();
@@ -614,11 +616,17 @@ export default function App() {
                 style={{ flex: 1, background: 'none', border: 'none', color: 'white', outline: 'none', padding: '0.5rem', fontSize: '1rem' }}
               />
 
-              <button onClick={startVoice} style={{
+              <button onClick={toggleListening} style={{
                 background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem',
-                color: voiceModeEnabled ? '#ef4444' : '#94a3b8',
+                color: isListening ? '#ef4444' : '#94a3b8',
                 transition: 'all 0.3s'
-              }}><IconMic /></button>
+              }} title={isListening ? 'Detener microfono' : 'Activar microfono'}><IconMic /></button>
+
+              <button onClick={toggleSpeaker} style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem',
+                color: speakerEnabled ? '#22c55e' : '#94a3b8',
+                transition: 'all 0.3s'
+              }} title={speakerEnabled ? 'Desactivar altavoz' : 'Activar altavoz'}><IconSpeaker /></button>
 
               <button
                 onClick={handleSend}
