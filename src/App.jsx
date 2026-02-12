@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import * as LottieModule from 'lottie-react';
 import './App.css';
 import aiRobot from './assets/Robot.json';
 
@@ -96,13 +95,6 @@ const ChatMessage = ({ role, text, fileName }) => {
   );
 };
 
-const LottieComponent = LottieModule.default || LottieModule.Lottie;
-const isValidReactComponent = (value) => {
-  if (!value) return false;
-  if (typeof value === 'function') return true;
-  return typeof value === 'object' && !!value.$$typeof;
-};
-const LottieSafe = isValidReactComponent(LottieComponent) ? LottieComponent : null;
 
 export default function App() {
   const [messages, setMessages] = useState([
@@ -116,6 +108,7 @@ export default function App() {
   const [speakerEnabled, setSpeakerEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [LottieComponent, setLottieComponent] = useState(null);
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
   const azureRecognizerRef = useRef(null);
@@ -139,6 +132,20 @@ export default function App() {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    let cancelled = false;
+    import('lottie-react')
+      .then((mod) => {
+        if (cancelled) return;
+        const candidate = mod.Lottie || mod.default?.default || mod.default;
+        setLottieComponent(typeof candidate === 'function' ? () => candidate : null);
+      })
+      .catch(() => {
+        if (!cancelled) setLottieComponent(null);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!lottieRef.current) return;
@@ -605,8 +612,8 @@ export default function App() {
                   <div className="nova-assistant-row" key={i}>
                     <ChatMessage role={m.role} text={m.text} fileName={m.fileName} />
                     <div className={`nova-inline-robot nova-inline-${botState}`}>
-                      {LottieSafe ? (
-                        <LottieSafe
+                      {LottieComponent ? (
+                        <LottieComponent
                           lottieRef={lottieRef}
                           animationData={aiRobot}
                           loop
