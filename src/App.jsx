@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Lottie from 'lottie-react';
 import './App.css';
+import aiRobot from './assets/AI Robot.json';
 
 // Iconos en SVG para no depender de librerías externas que puedan fallar
 const IconBot = () => (
@@ -105,6 +107,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [speakerEnabled, setSpeakerEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
   const azureRecognizerRef = useRef(null);
@@ -112,14 +115,30 @@ export default function App() {
   const audioRef = useRef(null);
   const audioUrlRef = useRef('');
   const ttsAbortRef = useRef(null);
+  const lottieRef = useRef(null);
   const [azureReady, setAzureReady] = useState(false);
   const transcriptRef = useRef('');
 
   const API_URL = import.meta.env.VITE_API_URL || '';
+  const botState = isListening ? 'listening' : isLoading ? 'thinking' : isSpeaking ? 'speaking' : 'idle';
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!lottieRef.current) return;
+    const speedMap = {
+      idle: 0.8,
+      listening: 1.15,
+      thinking: 1.25,
+      speaking: 1.35
+    };
+    const speed = speedMap[botState] || 1;
+    try {
+      lottieRef.current.setSpeed(speed);
+    } catch (e) {}
+  }, [botState]);
 
   // Inicializar Azure Speech SDK (opcional). Requiere instalar: npm install microsoft-cognitiveservices-speech-sdk
   useEffect(() => {
@@ -160,6 +179,7 @@ export default function App() {
       try { URL.revokeObjectURL(audioUrlRef.current); } catch (e) {}
       audioUrlRef.current = '';
     }
+    setIsSpeaking(false);
   };
 
   useEffect(() => {
@@ -336,10 +356,13 @@ export default function App() {
       }
       audioRef.current.src = url;
       audioRef.current.onended = () => {
+        setIsSpeaking(false);
         stopSpeechPlayback();
       };
+      setIsSpeaking(true);
       await audioRef.current.play();
     } catch (e) {
+      setIsSpeaking(false);
       // ignore aborted or playback errors
     }
   };
@@ -557,23 +580,43 @@ export default function App() {
 
         {/* Mensajes */}
         <section style={{ flex: 1, overflowY: 'auto', padding: '2rem 0' }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            {messages.map((m, i) => (
-              <ChatMessage key={i} role={m.role} text={m.text} fileName={m.fileName} />
-            ))}
-            {isLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', padding: '0 1rem' }}>
-                <div style={{
-                  maxWidth: '75%', padding: '1.2rem', borderRadius: '1.5rem 1.5rem 1.5rem 0',
-                  backgroundColor: '#1e293b', color: 'white', border: '1px solid #334155',
-                  display: 'flex', alignItems: 'center', gap: '0.6rem'
-                }}>
-                  <span className="nova-spinner" />
-                  <span className="nova-thinking" style={{ fontSize: '0.9rem' }}>Pensando...</span>
+          <div className="nova-chat-layout">
+            <div className="nova-chat-stream">
+              {messages.map((m, i) => (
+                <ChatMessage key={i} role={m.role} text={m.text} fileName={m.fileName} />
+              ))}
+              {isLoading && (
+                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', padding: '0 1rem' }}>
+                  <div style={{
+                    maxWidth: '75%', padding: '1.2rem', borderRadius: '1.5rem 1.5rem 1.5rem 0',
+                    backgroundColor: '#1e293b', color: 'white', border: '1px solid #334155',
+                    display: 'flex', alignItems: 'center', gap: '0.6rem'
+                  }}>
+                    <span className="nova-spinner" />
+                    <span className="nova-thinking" style={{ fontSize: '0.9rem' }}>Pensando...</span>
+                  </div>
                 </div>
+              )}
+              <div ref={scrollRef} />
+            </div>
+            <div className="nova-bot-panel">
+              <div className={`nova-bot-card nova-bot-${botState}`}>
+                <div className="nova-bot-title">NOVA</div>
+                <div className="nova-bot-state">
+                  {botState === 'listening' && 'Escuchando'}
+                  {botState === 'thinking' && 'Pensando'}
+                  {botState === 'speaking' && 'Hablando'}
+                  {botState === 'idle' && 'En espera'}
+                </div>
+                <Lottie
+                  lottieRef={lottieRef}
+                  animationData={aiRobot}
+                  loop
+                  autoplay
+                  className="nova-bot-lottie"
+                />
               </div>
-            )}
-            <div ref={scrollRef} />
+            </div>
           </div>
         </section>
 

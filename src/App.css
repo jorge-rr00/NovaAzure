@@ -72,3 +72,75 @@
     transform: translateY(-1px);
   }
 }
+
+.nova-chat-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+.nova-chat-stream {
+  flex: 1;
+}
+
+.nova-bot-panel {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 100px;
+  align-self: flex-start;
+}
+
+.nova-bot-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1e293b;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 16px 30px -18px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.nova-bot-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.25rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 0.4rem;
+}
+
+.nova-bot-state {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.nova-bot-lottie {
+  width: 180px;
+  height: 180px;
+  margin: 0 auto;
+}
+
+.nova-bot-listening {
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+.nova-bot-thinking {
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.5), 0 0 20px rgba(96, 165, 250, 0.25);
+}
+
+.nova-bot-speaking {
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.25);
+}
+
+@media (max-width: 980px) {
+  .nova-chat-layout {
+    max-width: 900px;
+  }
+
+  .nova-bot-panel {
+    display: none;
+  }
+}
