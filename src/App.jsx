@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import Lottie from 'lottie-react';
+import * as LottieModule from 'lottie-react';
 import './App.css';
 import aiRobot from './assets/AI Robot.json';
 
@@ -95,6 +95,8 @@ const ChatMessage = ({ role, text, fileName }) => {
     </div>
   );
 };
+
+const LottieComponent = LottieModule.default || LottieModule.Lottie;
 
 export default function App() {
   const [messages, setMessages] = useState([
@@ -608,13 +610,15 @@ export default function App() {
                   {botState === 'speaking' && 'Hablando'}
                   {botState === 'idle' && 'En espera'}
                 </div>
-                <Lottie
-                  lottieRef={lottieRef}
-                  animationData={aiRobot}
-                  loop
-                  autoplay
-                  className="nova-bot-lottie"
-                />
+                {LottieComponent && (
+                  <LottieComponent
+                    lottieRef={lottieRef}
+                    animationData={aiRobot}
+                    loop
+                    autoplay
+                    className="nova-bot-lottie"
+                  />
+                )}
               </div>
             </div>
           </div>
