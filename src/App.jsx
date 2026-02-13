@@ -366,6 +366,32 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      if (authToken) {
+        await fetch(`${API_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+      }
+    } catch (e) {
+      // ignore logout errors
+    } finally {
+      setAuthToken('');
+      setUsername('');
+      setAuthStatus('anonymous');
+      setAuthView('welcome');
+      localStorage.removeItem('nova_auth_token');
+      localStorage.removeItem('nova_username');
+      setSessions([]);
+      setSessionId(null);
+      setMessages([
+        { role: 'assistant', text: 'Sistemas NOVA activos. Lista para procesar texto, voz o documentos. ¿En qué puedo ayudarte?' }
+      ]);
+      stopSpeechPlayback();
+    }
+  };
+
   const loadSessionMessages = async (sid) => {
     try {
       const res = await fetch(`${API_URL}/api/sessions/${sid}/messages?limit=200`, {
@@ -885,8 +911,25 @@ export default function App() {
             <span style={{ fontWeight: '700', letterSpacing: '0.05rem', fontSize: '0.9rem' }}>SISTEMA ACTIVO</span>
           </div>
           {username && (
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>
-              Usuario: {username}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>
+                Usuario: {username}
+              </div>
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: '0.6rem',
+                  border: '1px solid #334155',
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  color: '#e2e8f0',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cerrar sesion
+              </button>
             </div>
           )}
         </header>
