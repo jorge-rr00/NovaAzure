@@ -524,7 +524,7 @@ export default function App() {
           BORRAR HISTORIAL
         </button>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="nova-scroll" style={{ flex: 1, overflowY: 'auto' }}>
           <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '800', letterSpacing: '0.1rem', marginBottom: '1rem' }}>RECIENTES</p>
             {sessions.length === 0 && (
               <div style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '0.5rem', borderRadius: '0.5rem' }}>Sin sesiones</div>
@@ -600,7 +600,7 @@ export default function App() {
         </header>
 
         {/* Mensajes */}
-        <section style={{ flex: 1, overflowY: 'auto', padding: '2rem 0' }}>
+        <section className="nova-scroll" style={{ flex: 1, overflowY: 'auto', padding: '2rem 0' }}>
           <div className="nova-chat-layout">
             <div className="nova-chat-stream">
               {messages.map((m, i) => {
