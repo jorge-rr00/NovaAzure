@@ -36,6 +36,136 @@ const renderInlineMarkdown = (value) => {
 
 const ChatMessage = ({ role, text, fileName }) => {
   const isMonospace = typeof text === 'string' && (text.includes('\n') || text.includes('|') || text.includes('##'));
+  if (!isAuthenticated) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#020617', color: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ width: '100%', maxWidth: '480px', backgroundColor: '#0f172a', borderRadius: '1.5rem', border: '1px solid #1e293b', padding: '2.5rem', boxShadow: '0 30px 60px rgba(0,0,0,0.45)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div style={{ backgroundColor: '#2563eb', padding: '0.6rem', borderRadius: '0.9rem' }}><IconBot /></div>
+            <div>
+              <h1 style={{ fontSize: '2rem', margin: 0, fontWeight: '800', letterSpacing: '-0.03em' }}>NOVA</h1>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.9rem' }}>Tu asistente interactivo</p>
+            </div>
+          </div>
+
+          {authView === 'welcome' && (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <button
+                onClick={() => {
+                  resetAuthMessages();
+                  setAuthUsername('');
+                  setAuthPassword('');
+                  setAuthPasswordConfirm('');
+                  setAuthView('login');
+                }}
+                style={{ padding: '0.85rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: 'rgba(255,255,255,0.04)', color: '#f8fafc', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Iniciar sesion
+              </button>
+              <button
+                onClick={() => {
+                  resetAuthMessages();
+                  setAuthUsername('');
+                  setAuthPassword('');
+                  setAuthPasswordConfirm('');
+                  setAuthView('register');
+                }}
+                style={{ padding: '0.85rem', borderRadius: '0.9rem', border: '1px solid rgba(37,99,235,0.4)', backgroundColor: 'rgba(37,99,235,0.2)', color: '#e2e8f0', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Registrarse
+              </button>
+            </div>
+          )}
+
+          {authView === 'login' && (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <input
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+                placeholder="Usuario"
+                style={{ padding: '0.8rem 1rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: '#0b1220', color: '#f8fafc' }}
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="Contraseña"
+                style={{ padding: '0.8rem 1rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: '#0b1220', color: '#f8fafc' }}
+              />
+              {authError && <div style={{ color: '#f87171', fontSize: '0.85rem' }}>{authError}</div>}
+              {authSuccess && <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>{authSuccess}</div>}
+              <button
+                onClick={handleLogin}
+                disabled={authLoading}
+                style={{ padding: '0.85rem', borderRadius: '0.9rem', border: 'none', backgroundColor: '#2563eb', color: '#f8fafc', fontWeight: '700', cursor: 'pointer' }}
+              >
+                {authLoading ? 'Ingresando...' : 'Entrar'}
+              </button>
+              <button
+                onClick={() => {
+                  resetAuthMessages();
+                  setAuthUsername('');
+                  setAuthPassword('');
+                  setAuthPasswordConfirm('');
+                  setAuthView('welcome');
+                }}
+                style={{ padding: '0.6rem', borderRadius: '0.9rem', border: 'none', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                Volver
+              </button>
+            </div>
+          )}
+
+          {authView === 'register' && (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <input
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+                placeholder="Usuario (solo letras y números)"
+                style={{ padding: '0.8rem 1rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: '#0b1220', color: '#f8fafc' }}
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="Contraseña"
+                style={{ padding: '0.8rem 1rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: '#0b1220', color: '#f8fafc' }}
+              />
+              <input
+                type="password"
+                value={authPasswordConfirm}
+                onChange={(e) => setAuthPasswordConfirm(e.target.value)}
+                placeholder="Repite la contraseña"
+                style={{ padding: '0.8rem 1rem', borderRadius: '0.9rem', border: '1px solid #334155', backgroundColor: '#0b1220', color: '#f8fafc' }}
+              />
+              {authError && <div style={{ color: '#f87171', fontSize: '0.85rem' }}>{authError}</div>}
+              {authSuccess && <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>{authSuccess}</div>}
+              <button
+                onClick={handleRegister}
+                disabled={authLoading}
+                style={{ padding: '0.85rem', borderRadius: '0.9rem', border: 'none', backgroundColor: '#22c55e', color: '#0f172a', fontWeight: '700', cursor: 'pointer' }}
+              >
+                {authLoading ? 'Registrando...' : 'Crear cuenta'}
+              </button>
+              <button
+                onClick={() => {
+                  resetAuthMessages();
+                  setAuthUsername('');
+                  setAuthPassword('');
+                  setAuthPasswordConfirm('');
+                  setAuthView('welcome');
+                }}
+                style={{ padding: '0.6rem', borderRadius: '0.9rem', border: 'none', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                Volver
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -97,6 +227,15 @@ const ChatMessage = ({ role, text, fileName }) => {
 
 
 export default function App() {
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('nova_auth_token') || '');
+  const [username, setUsername] = useState(() => localStorage.getItem('nova_username') || '');
+  const [authView, setAuthView] = useState('welcome');
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'Sistemas NOVA activos. Lista para procesar texto, voz o documentos. ¿En qué puedo ayudarte?' }
   ]);
@@ -122,6 +261,7 @@ export default function App() {
 
   const API_URL = import.meta.env.VITE_API_URL || '';
   const botState = isListening ? 'listening' : isLoading ? 'thinking' : isSpeaking ? 'speaking' : 'idle';
+  const isAuthenticated = Boolean(authToken && username);
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === 'assistant') return i;
@@ -132,6 +272,42 @@ export default function App() {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!authToken) {
+      setUsername('');
+      setAuthView('welcome');
+      return;
+    }
+
+    let cancelled = false;
+    const validateAuth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('unauthorized');
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.ok) {
+          setUsername(data.username || '');
+          localStorage.setItem('nova_username', data.username || '');
+          setAuthView('chat');
+          await initializeUserSession();
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setAuthToken('');
+        setUsername('');
+        localStorage.removeItem('nova_auth_token');
+        localStorage.removeItem('nova_username');
+        setAuthView('welcome');
+      }
+    };
+
+    validateAuth();
+    return () => { cancelled = true; };
+  }, [authToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,15 +386,20 @@ export default function App() {
   }, [speakerEnabled]);
 
   const loadSessions = async () => {
+    if (!authToken) return [];
     try {
-      const res = await fetch(`${API_URL}/api/sessions`);
+      const res = await fetch(`${API_URL}/api/sessions`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       const data = await res.json();
       if (data.ok && Array.isArray(data.sessions)) {
         setSessions(data.sessions);
+        return data.sessions;
       }
     } catch (e) {
       console.warn('No se pudieron cargar sesiones:', e.message);
     }
+    return [];
   };
 
   const getSessionId = (s) => s?.id || s?.session_id || '';
@@ -232,9 +413,86 @@ export default function App() {
     return `Nova-${formatted}`;
   };
 
+  const resetAuthMessages = () => {
+    setAuthError('');
+    setAuthSuccess('');
+  };
+
+  const handleLogin = async () => {
+    resetAuthMessages();
+    setAuthLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: authUsername.trim(),
+          password: authPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setAuthError(data?.error || 'No se pudo iniciar sesión');
+        return;
+      }
+      localStorage.setItem('nova_auth_token', data.token);
+      localStorage.setItem('nova_username', data.username);
+      setAuthToken(data.token);
+      setUsername(data.username);
+      setAuthView('chat');
+      setAuthSuccess('Sesión iniciada correctamente');
+    } catch (e) {
+      setAuthError('No se pudo iniciar sesión');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    resetAuthMessages();
+    const usernameValue = authUsername.trim();
+    if (!/^[A-Za-z0-9]+$/.test(usernameValue)) {
+      setAuthError('El usuario solo puede tener letras y números');
+      return;
+    }
+    if (authPassword !== authPasswordConfirm) {
+      setAuthError('Las contraseñas no coinciden');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: usernameValue,
+          password: authPassword,
+          password_confirm: authPasswordConfirm
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setAuthError(data?.error || 'No se pudo registrar');
+        return;
+      }
+      localStorage.setItem('nova_auth_token', data.token);
+      localStorage.setItem('nova_username', data.username);
+      setAuthToken(data.token);
+      setUsername(data.username);
+      setAuthView('chat');
+      setAuthSuccess('Registro completado');
+    } catch (e) {
+      setAuthError('No se pudo registrar');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const loadSessionMessages = async (sid) => {
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${sid}/messages?limit=200`);
+      const res = await fetch(`${API_URL}/api/sessions/${sid}/messages?limit=200`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       const data = await res.json();
       if (data.ok && Array.isArray(data.messages)) {
         setMessages(data.messages.map((m) => ({ role: m.role, text: m.content })));
@@ -244,9 +502,24 @@ export default function App() {
     }
   };
 
+  const initializeUserSession = async () => {
+    const list = await loadSessions();
+    if (list && list.length) {
+      const sid = getSessionId(list[0]);
+      setSessionId(sid);
+      await loadSessionMessages(sid);
+      return;
+    }
+    await createNewSession();
+  };
+
   const createNewSession = async () => {
+    if (!authToken) return;
     try {
-      const res = await fetch(`${API_URL}/api/sessions`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/api/sessions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       const data = await res.json();
       if (data.ok) {
         setSessionId(data.session_id);
@@ -261,23 +534,12 @@ export default function App() {
     }
   };
 
-  // create a session on mount
+  // Initialize sessions after authentication
   useEffect(() => {
-    const createSession = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/sessions`, { method: 'POST' });
-        const data = await res.json();
-        if (data.ok) {
-          setSessionId(data.session_id);
-          if (data.welcome) setMessages(m => [...m, { role: 'assistant', text: data.welcome }]);
-          loadSessions();
-        }
-      } catch (e) {
-        console.warn('No se pudo crear session:', e.message);
-      }
-    };
-    createSession();
-  }, []);
+    if (isAuthenticated) {
+      initializeUserSession();
+    }
+  }, [isAuthenticated]);
 
   // Helper to send a query (used by text and voice flows)
   const sendQuery = async ({ text, files = [], viaVoice = false }) => {
@@ -302,7 +564,11 @@ export default function App() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/query`, { method: 'POST', body: form });
+      const res = await fetch(`${API_URL}/api/query`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: form
+      });
       const data = await res.json();
       if (!res.ok) {
         const reason = data && (data.reason || data.error) ? (data.reason || data.error) : 'Error en el servidor';
@@ -362,7 +628,10 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/api/tts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`
+        },
         body: JSON.stringify({ text: clean }),
         signal: controller.signal
       });
@@ -506,7 +775,10 @@ export default function App() {
             stopSpeechPlayback();
             setSpeakerEnabled(false);
             try {
-              const res = await fetch(`${API_URL}/api/sessions`, { method: 'DELETE' });
+              const res = await fetch(`${API_URL}/api/sessions`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${authToken}` }
+              });
               const data = await res.json();
               if (data.ok) {
                 await createNewSession();
@@ -555,7 +827,10 @@ export default function App() {
                       stopSpeechPlayback();
                       try {
                         const sid = getSessionId(s);
-                        const res = await fetch(`${API_URL}/api/sessions/${sid}`, { method: 'DELETE' });
+                        const res = await fetch(`${API_URL}/api/sessions/${sid}`, {
+                          method: 'DELETE',
+                          headers: { Authorization: `Bearer ${authToken}` }
+                        });
                         const data = await res.json();
                         if (data.ok && sid === sessionId) {
                           setSpeakerEnabled(false);
@@ -597,6 +872,11 @@ export default function App() {
             <div style={{ width: '10px', height: '10px', backgroundColor: '#22c55e', borderRadius: '50%', boxShadow: '0 0 10px #22c55e' }}></div>
             <span style={{ fontWeight: '700', letterSpacing: '0.05rem', fontSize: '0.9rem' }}>SISTEMA ACTIVO</span>
           </div>
+          {username && (
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>
+              Usuario: {username}
+            </div>
+          )}
         </header>
 
         {/* Mensajes */}
