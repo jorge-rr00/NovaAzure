@@ -328,6 +328,10 @@ export default function App() {
       setAuthError('El usuario solo puede tener letras y números');
       return;
     }
+    if (authPassword.length < 6) {
+      setAuthError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
     if (authPassword !== authPasswordConfirm) {
       setAuthError('Las contraseñas no coinciden');
       return;
