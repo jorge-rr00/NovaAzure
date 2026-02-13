@@ -99,6 +99,7 @@ const ChatMessage = ({ role, text, fileName }) => {
 export default function App() {
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('nova_auth_token') || '');
   const [username, setUsername] = useState(() => localStorage.getItem('nova_username') || '');
+  const [authStatus, setAuthStatus] = useState(() => (localStorage.getItem('nova_auth_token') ? 'checking' : 'anonymous'));
   const [authView, setAuthView] = useState('welcome');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -131,7 +132,7 @@ export default function App() {
 
   const API_URL = import.meta.env.VITE_API_URL || '';
   const botState = isListening ? 'listening' : isLoading ? 'thinking' : isSpeaking ? 'speaking' : 'idle';
-  const isAuthenticated = Boolean(authToken && username);
+  const isAuthenticated = authStatus === 'authenticated';
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === 'assistant') return i;
@@ -147,6 +148,7 @@ export default function App() {
     if (!authToken) {
       setUsername('');
       setAuthView('welcome');
+      setAuthStatus('anonymous');
       return;
     }
 
@@ -162,8 +164,7 @@ export default function App() {
         if (data.ok) {
           setUsername(data.username || '');
           localStorage.setItem('nova_username', data.username || '');
-          setAuthView('chat');
-          await initializeUserSession();
+          setAuthStatus('authenticated');
         }
       } catch (e) {
         if (cancelled) return;
@@ -172,6 +173,7 @@ export default function App() {
         localStorage.removeItem('nova_auth_token');
         localStorage.removeItem('nova_username');
         setAuthView('welcome');
+        setAuthStatus('anonymous');
       }
     };
 
@@ -309,6 +311,7 @@ export default function App() {
       localStorage.setItem('nova_username', data.username);
       setAuthToken(data.token);
       setUsername(data.username);
+      setAuthStatus('authenticated');
       setAuthView('chat');
       setAuthSuccess('Sesión iniciada correctamente');
     } catch (e) {
@@ -349,6 +352,7 @@ export default function App() {
       localStorage.setItem('nova_username', data.username);
       setAuthToken(data.token);
       setUsername(data.username);
+      setAuthStatus('authenticated');
       setAuthView('chat');
       setAuthSuccess('Registro completado');
     } catch (e) {
@@ -406,10 +410,10 @@ export default function App() {
 
   // Initialize sessions after authentication
   useEffect(() => {
-    if (isAuthenticated) {
+    if (authStatus === 'authenticated') {
       initializeUserSession();
     }
-  }, [isAuthenticated]);
+  }, [authStatus]);
 
   // Helper to send a query (used by text and voice flows)
   const sendQuery = async ({ text, files = [], viaVoice = false }) => {
